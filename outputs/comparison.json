@@ -1,0 +1,37 @@
+{
+  "input_points": 11420,
+  "strategy": {
+    "near_band_m": [
+      0,
+      10.0
+    ],
+    "middle_band_m": [
+      10.0,
+      30.0
+    ],
+    "far_band_m": [
+      30.0,
+      100
+    ],
+    "fine_m": 0.25,
+    "medium_m": 0.75,
+    "coarse_m": 2.0,
+    "uniform_resolution_m": 0.25
+  },
+  "uniform": {
+    "cells": 11288,
+    "stored_cell_values": 11288,
+    "processing_ms": 56.058
+  },
+  "adaptive": {
+    "cells": 6656,
+    "stored_cell_values": 6656,
+    "processing_ms": 35.657
+  },
+  "adaptive_point_assignments_by_zone": {
+    "fine_0_to_near_m": 182,
+    "medium_near_to_middle_m": 1299,
+    "coarse_beyond_middle_m": 9939
+  },
+  "note": "Processing measurements are one local run; compare them only on the same machine and input."
+}
