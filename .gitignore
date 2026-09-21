@@ -29,3 +29,8 @@ results/
 .env
 .vscode/
 .idea/
+
+venv/
+data/
+ScreenCapture_*.png
+ScreenCamera_*.json
