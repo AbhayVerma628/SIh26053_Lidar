@@ -1,36 +1,44 @@
 def load_data():
-    print("Loading LiDAR data...")
-    return None
+    print("1. Loading raw LiDAR data...")
+    return "raw_data"
 
+def preprocess(data):
+    print("2. Preprocessing point cloud...")
+    return "cleaned_data"
 
-def preprocess(points):
-    print("Preprocessing point cloud...")
-    return points
+def semantic_segmentation(data):
+    print("3. Performing semantic segmentation...")
+    return "segmented_data"
 
+def terrain_analysis(data):
+    print("4. Performing terrain analysis...")
+    return "terrain_data"
 
-def semantic_segmentation(points):
-    print("Performing semantic segmentation...")
-    return points
+def adaptive_grid(data):
+    print("5. Generating adaptive grid...")
+    return "grid_data"
 
-
-def adaptive_grid(points):
-    print("Generating adaptive 2.5D grid...")
-    return points
-
+def generate_2_5d_map(data):
+    print("6. Generating 2.5D map...")
+    return "map_data"
 
 def visualize(data):
-    print("Visualizing 2.5D map...")
-
+    print("7. Visualizing final map...")
+    return "visual_output"
 
 def main():
-    points = load_data()
-    points = preprocess(points)
-    points = semantic_segmentation(points)
-    grid = adaptive_grid(points)
-    visualize(grid)
-
-    print("Pipeline completed.")
-
+    print("--- Starting TERA PULSE Pipeline ---")
+    
+    # Executing the complete pipeline in order
+    data1 = load_data()
+    data2 = preprocess(data1)
+    data3 = semantic_segmentation(data2)
+    data4 = terrain_analysis(data3)
+    data5 = adaptive_grid(data4)
+    data6 = generate_2_5d_map(data5)
+    visualize(data6)
+    
+    print("--- Pipeline Completed ---")
 
 if __name__ == "__main__":
     main()
