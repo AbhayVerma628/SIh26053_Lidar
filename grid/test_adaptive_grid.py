@@ -1,7 +1,7 @@
 """Standard-library regression tests for the adaptive grid engine."""
 import unittest
 
-from adaptive_grid import Point, adaptive_grid, distance_xy, uniform_grid
+from grid.adaptive_grid import Point, adaptive_grid, distance_xy, uniform_grid
 
 
 class AdaptiveGridTests(unittest.TestCase):
