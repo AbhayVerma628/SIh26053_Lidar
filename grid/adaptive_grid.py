@@ -1,26 +1,42 @@
-"""Variable-resolution LiDAR elevation grid prototype.
-
-Input CSV columns: x,y,z[,semantic_class]. Coordinates are metres in the
-sensor frame. With no --input, a deterministic synthetic LiDAR-like scene is
-used so the prototype can be demonstrated immediately.
 """
+Adaptive Variable-Resolution 2.5D LiDAR Grid
+Member 4 - Adaptive Grid Engine
+
+Responsibilities:
+    - Convert LiDAR points into adaptive-resolution cells.
+    - Use smaller cells near the sensor.
+    - Use larger cells farther from the sensor.
+    - Preserve elevation information.
+    - Preserve semantic information when available.
+    - Compare adaptive and uniform representations.
+
+This module does NOT perform visualization.
+Visualization is handled by Member 3.
+"""
+
 from __future__ import annotations
 
 import argparse
 import csv
 import json
 import math
-import random
 import statistics
 import time
+
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
 
+# ======================================================================
+# DATA STRUCTURES
+# ======================================================================
+
 @dataclass(frozen=True)
 class Point:
+    """Single LiDAR point."""
+
     x: float
     y: float
     z: float
@@ -29,238 +45,727 @@ class Point:
 
 @dataclass
 class Cell:
-    x: float                 # cell centre, metres
+    """Single occupied 2.5D grid cell."""
+
+    x: float
     y: float
-    resolution: float        # cell side length, metres
-    elevation: float         # maximum observed z, metres
+    resolution: float
+    elevation: float
     mean_elevation: float
-    semantic_class: str      # majority point class
+    semantic_class: str
     point_count: int
 
 
+# ======================================================================
+# DISTANCE
+# ======================================================================
+
 def distance_xy(point: Point) -> float:
-    """Horizontal sensor distance; z is deliberately not included."""
+    """
+    Calculate horizontal distance from the LiDAR sensor.
+
+    Z is intentionally ignored because resolution depends on
+    horizontal distance.
+    """
+
     return math.hypot(point.x, point.y)
 
 
+# ======================================================================
+# CSV LOADING
+# ======================================================================
+
 def load_points(path: Path) -> list[Point]:
-    with path.open(newline="") as handle:
+    """
+    Load points from CSV.
+
+    Required columns:
+        x, y, z
+
+    Optional:
+        semantic_class
+    """
+
+    with path.open(newline="", encoding="utf-8") as handle:
+
         reader = csv.DictReader(handle)
+
         required = {"x", "y", "z"}
+
         if not reader.fieldnames or not required.issubset(reader.fieldnames):
-            raise ValueError("Input CSV must have headers x,y,z[,semantic_class]")
-        return [Point(float(row["x"]), float(row["y"]), float(row["z"]),
-                      row.get("semantic_class") or "unknown") for row in reader]
+            raise ValueError(
+                "Input CSV must contain x,y,z[,semantic_class]"
+            )
 
+        points = []
 
-def synthetic_scene(seed: int = 7, count: int = 18000) -> list[Point]:
-    """Road-like point cloud whose density falls off with sensor distance."""
-    rng = random.Random(seed)
-    points: list[Point] = []
-    for _ in range(count):
-        # Area sampling, tapered to resemble lower return density at range.
-        radius = 100 * math.sqrt(rng.random())
-        if rng.random() < radius / 180:
-            continue
-        theta = rng.uniform(-math.pi, math.pi)
-        x, y = radius * math.cos(theta), radius * math.sin(theta)
-        road = -0.015 * x + 0.004 * y + rng.gauss(0, 0.025)
-        # A small elevated object makes retained elevation information visible.
-        if 12 < x < 18 and -4 < y < 3:
-            z, label = road + 1.45 + rng.gauss(0, 0.03), "vehicle"
-        elif abs(y) > 25 and rng.random() < 0.3:
-            z, label = road + 0.8 + rng.random() * 2.2, "vegetation"
-        else:
-            z, label = road, "ground"
-        points.append(Point(x, y, z, label))
+        for row in reader:
+
+            points.append(
+                Point(
+                    float(row["x"]),
+                    float(row["y"]),
+                    float(row["z"]),
+                    row.get("semantic_class") or "unknown",
+                )
+            )
+
     return points
 
 
+# ======================================================================
+# NUMPY / M1-M2 ADAPTER
+# ======================================================================
+
+def points_from_arrays(points, labels=None) -> list[Point]:
+    """
+    Convert NumPy-style Nx3 point data into M4 Point objects.
+
+    This function allows M5 to directly connect:
+
+        M2 preprocessing
+                +
+        M1 semantic segmentation
+                ↓
+        M4 adaptive grid
+
+    Parameters
+    ----------
+    points:
+        Nx3 array-like object containing x, y, z.
+
+    labels:
+        Optional semantic labels.
+
+    Label mapping:
+        0 -> ground
+        1 -> static_obstacle
+        2 -> dynamic_object
+        3 -> unknown
+    """
+
+    label_names = {
+        0: "ground",
+        1: "static_obstacle",
+        2: "dynamic_object",
+        3: "unknown",
+    }
+
+    points = list(points)
+
+    if labels is not None:
+        labels = list(labels)
+
+        if len(points) != len(labels):
+            raise ValueError(
+                "points and labels must contain the same number of entries"
+            )
+
+    result = []
+
+    for index, xyz in enumerate(points):
+
+        if len(xyz) < 3:
+            raise ValueError(
+                "Every point must contain x, y and z"
+            )
+
+        semantic_class = "unknown"
+
+        if labels is not None:
+            semantic_class = label_names.get(
+                int(labels[index]),
+                "unknown",
+            )
+
+        result.append(
+            Point(
+                x=float(xyz[0]),
+                y=float(xyz[1]),
+                z=float(xyz[2]),
+                semantic_class=semantic_class,
+            )
+        )
+
+    return result
+
+
+# ======================================================================
+# SYNTHETIC DEMO
+# ======================================================================
+
+def synthetic_scene(
+    seed: int = 7,
+    count: int = 18000,
+) -> list[Point]:
+
+    """
+    Generate deterministic synthetic LiDAR-like data.
+
+    This is ONLY for testing the M4 module.
+    Real project integration should use real LiDAR data.
+    """
+
+    import random
+
+    rng = random.Random(seed)
+
+    points = []
+
+    for _ in range(count):
+
+        radius = 100 * math.sqrt(rng.random())
+
+        if rng.random() < radius / 180:
+            continue
+
+        theta = rng.uniform(-math.pi, math.pi)
+
+        x = radius * math.cos(theta)
+        y = radius * math.sin(theta)
+
+        road = (
+            -0.015 * x
+            + 0.004 * y
+            + rng.gauss(0, 0.025)
+        )
+
+        # Example elevated vehicle-like object
+        if 12 < x < 18 and -4 < y < 3:
+
+            z = (
+                road
+                + 1.45
+                + rng.gauss(0, 0.03)
+            )
+
+            label = "vehicle"
+
+        # Example vegetation
+        elif abs(y) > 25 and rng.random() < 0.3:
+
+            z = (
+                road
+                + 0.8
+                + rng.random() * 2.2
+            )
+
+            label = "vegetation"
+
+        else:
+
+            z = road
+            label = "ground"
+
+        points.append(
+            Point(
+                x=x,
+                y=y,
+                z=z,
+                semantic_class=label,
+            )
+        )
+
+    return points
+
+
+# ======================================================================
+# SEMANTIC AGGREGATION
+# ======================================================================
+
 def majority_class(points: list[Point]) -> str:
-    counts: dict[str, int] = defaultdict(int)
+    """Return the most common semantic class."""
+
+    counts = defaultdict(int)
+
     for point in points:
         counts[point.semantic_class] += 1
-    return min(counts, key=lambda label: (-counts[label], label))
+
+    return min(
+        counts,
+        key=lambda label: (-counts[label], label),
+    )
 
 
-def aggregate(points: Iterable[Point], resolution_for) -> list[Cell]:
-    """Bin each point by the resolution selected from its sensor distance."""
-    buckets: dict[tuple[float, int, int], list[Point]] = defaultdict(list)
+# ======================================================================
+# CELL AGGREGATION
+# ======================================================================
+
+def aggregate(
+    points: Iterable[Point],
+    resolution_for,
+) -> list[Cell]:
+
+    """
+    Convert points into grid cells.
+
+    resolution_for(point) determines the cell resolution.
+
+    Multiple points falling inside the same cell are represented
+    by one Cell object.
+    """
+
+    buckets = defaultdict(list)
+
     for point in points:
+
         resolution = resolution_for(point)
-        # floor works correctly for negative sensor-frame coordinates.
-        key = (resolution, math.floor(point.x / resolution), math.floor(point.y / resolution))
+
+        ix = math.floor(point.x / resolution)
+        iy = math.floor(point.y / resolution)
+
+        key = (
+            resolution,
+            ix,
+            iy,
+        )
+
         buckets[key].append(point)
-    cells: list[Cell] = []
-    for (resolution, ix, iy), bucket in buckets.items():
-        elevations = [point.z for point in bucket]
-        cells.append(Cell(
-            x=(ix + 0.5) * resolution, y=(iy + 0.5) * resolution,
-            resolution=resolution, elevation=max(elevations),
-            mean_elevation=statistics.fmean(elevations),
-            semantic_class=majority_class(bucket), point_count=len(bucket),
-        ))
-    return sorted(cells, key=lambda cell: (cell.resolution, cell.x, cell.y))
+
+    cells = []
+
+    for (
+        resolution,
+        ix,
+        iy,
+    ), bucket in buckets.items():
+
+        elevations = [
+            point.z
+            for point in bucket
+        ]
+
+        cells.append(
+            Cell(
+                x=(ix + 0.5) * resolution,
+                y=(iy + 0.5) * resolution,
+                resolution=resolution,
+                elevation=max(elevations),
+                mean_elevation=statistics.fmean(elevations),
+                semantic_class=majority_class(bucket),
+                point_count=len(bucket),
+            )
+        )
+
+    return sorted(
+        cells,
+        key=lambda cell: (
+            cell.resolution,
+            cell.x,
+            cell.y,
+        ),
+    )
 
 
-def adaptive_grid(points: Iterable[Point], near=10.0, middle=30.0,
-                  fine=0.25, medium=0.75, coarse=2.0) -> list[Cell]:
-    """0–near: fine; near–middle: medium; beyond middle: coarse."""
-    if not (0 < near < middle and 0 < fine <= medium <= coarse):
-        raise ValueError("Require 0 < near < middle and fine <= medium <= coarse")
+# ======================================================================
+# ADAPTIVE GRID
+# ======================================================================
+
+def adaptive_grid(
+    points: Iterable[Point],
+    near: float = 10.0,
+    middle: float = 30.0,
+    fine: float = 0.25,
+    medium: float = 0.75,
+    coarse: float = 2.0,
+) -> list[Cell]:
+
+    """
+    Build variable-resolution 2.5D grid.
+
+    Default configuration:
+
+        0 - 10 m       -> 0.25 m
+        10 - 30 m      -> 0.75 m
+        30 m and beyond -> 2.0 m
+    """
+
+    if not (
+        0 < near < middle
+        and 0 < fine <= medium <= coarse
+    ):
+        raise ValueError(
+            "Require 0 < near < middle and "
+            "0 < fine <= medium <= coarse"
+        )
+
     def resolution_for(point: Point) -> float:
+
         distance = distance_xy(point)
+
         if distance < near:
             return fine
+
         if distance < middle:
             return medium
+
         return coarse
-    return aggregate(points, resolution_for)
+
+    return aggregate(
+        points,
+        resolution_for,
+    )
 
 
-def zone_summary(points: Iterable[Point], near: float, middle: float) -> dict[str, int]:
-    """Count point assignments before aggregation, making band use auditable."""
-    counts = {"fine_0_to_near_m": 0, "medium_near_to_middle_m": 0, "coarse_beyond_middle_m": 0}
+# ======================================================================
+# ZONE SUMMARY
+# ======================================================================
+
+def zone_summary(
+    points: Iterable[Point],
+    near: float,
+    middle: float,
+) -> dict[str, int]:
+
+    """Count points assigned to each distance zone."""
+
+    counts = {
+        "fine_0_to_near_m": 0,
+        "medium_near_to_middle_m": 0,
+        "coarse_beyond_middle_m": 0,
+    }
+
     for point in points:
+
         distance = distance_xy(point)
+
         if distance < near:
+
             counts["fine_0_to_near_m"] += 1
+
         elif distance < middle:
+
             counts["medium_near_to_middle_m"] += 1
+
         else:
+
             counts["coarse_beyond_middle_m"] += 1
+
     return counts
 
 
-def uniform_grid(points: Iterable[Point], resolution=0.25) -> list[Cell]:
-    return aggregate(points, lambda _point: resolution)
+# ======================================================================
+# UNIFORM GRID
+# ======================================================================
+
+def uniform_grid(
+    points: Iterable[Point],
+    resolution: float = 0.25,
+) -> list[Cell]:
+
+    """Build a uniform-resolution grid for comparison."""
+
+    if resolution <= 0:
+        raise ValueError(
+            "Uniform resolution must be greater than zero"
+        )
+
+    return aggregate(
+        points,
+        lambda _point: resolution,
+    )
 
 
-def timed(builder, points: list[Point]):
+# ======================================================================
+# TIMING
+# ======================================================================
+
+def timed(
+    builder,
+    points: list[Point],
+):
+
+    """Measure grid construction time."""
+
     started = time.perf_counter()
+
     cells = builder(points)
-    return cells, (time.perf_counter() - started) * 1000
+
+    elapsed_ms = (
+        time.perf_counter() - started
+    ) * 1000
+
+    return cells, elapsed_ms
 
 
-def save_cells(path: Path, cells: list[Cell]) -> None:
-    with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(asdict(cells[0]).keys()) if cells else list(Cell.__annotations__))
+# ======================================================================
+# SAVE CELLS
+# ======================================================================
+
+def save_cells(
+    path: Path,
+    cells: list[Cell],
+) -> None:
+
+    """Save grid cells as CSV."""
+
+    fieldnames = list(
+        Cell.__annotations__
+    )
+
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fieldnames,
+        )
+
         writer.writeheader()
-        writer.writerows(asdict(cell) for cell in cells)
+
+        for cell in cells:
+
+            writer.writerow(
+                asdict(cell)
+            )
 
 
-def write_top_down_svg(path: Path, cells: list[Cell], near: float, middle: float) -> None:
-    """Write a lightweight top-down diagram from the actual adaptive cells."""
-    canvas, extent = 800, 105.0
-    scale = canvas / (2 * extent)
-    def px(value: float) -> float:
-        return canvas / 2 + value * scale
-    def py(value: float) -> float:
-        return canvas / 2 - value * scale
-    colours = {0.25: "#1677ff", 0.75: "#f59e0b", 2.0: "#9ca3af"}
-    rects = []
-    for cell in cells:
-        side = cell.resolution * scale
-        rects.append(f'<rect x="{px(cell.x)-side/2:.2f}" y="{py(cell.y)-side/2:.2f}" width="{side:.2f}" height="{side:.2f}" fill="{colours.get(cell.resolution, "#9ca3af")}"/>')
-    rings = "".join(f'<circle cx="400" cy="400" r="{r*scale:.1f}" fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="6 6"/>' for r in (near, middle))
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Top-down adaptive LiDAR grid">
-<rect width="800" height="800" fill="#f8fafc"/>{''.join(rects)}{rings}
-<circle cx="400" cy="400" r="8" fill="#111827"/><path d="M400 378 L391 397 L409 397 Z" fill="white"/>
-<text x="412" y="370" font-family="Arial" font-size="16" fill="#111827">LiDAR sensor</text>
-<text x="435" y="365" font-family="Arial" font-size="16" fill="#111827">10 m: fine (0.25 m)</text>
-<text x="525" y="278" font-family="Arial" font-size="16" fill="#111827">30 m: medium (0.75 m)</text>
-<g font-family="Arial" font-size="17" fill="#111827"><rect x="25" y="25" width="260" height="92" rx="8" fill="white" opacity=".93"/>
-<text x="45" y="53" font-weight="bold">Adaptive top-down grid</text><rect x="45" y="66" width="14" height="14" fill="#1677ff"/><text x="68" y="78">fine: 0–10 m</text><rect x="150" y="66" width="14" height="14" fill="#f59e0b"/><text x="173" y="78">medium: 10–30 m</text><rect x="45" y="91" width="14" height="14" fill="#9ca3af"/><text x="68" y="103">coarse: 30–100 m</text></g>
-</svg>'''
-    path.write_text(svg, encoding="utf-8")
+# ======================================================================
+# METRICS
+# ======================================================================
 
+def calculate_metrics(
+    points: list[Point],
+    uniform: list[Cell],
+    adaptive: list[Cell],
+    uniform_ms: float,
+    adaptive_ms: float,
+    near: float,
+    middle: float,
+    fine: float,
+    medium: float,
+    coarse: float,
+    uniform_resolution: float,
+) -> dict:
 
-def write_project_report(path: Path, metrics: dict) -> None:
-    """Create a concise handoff document from the measured run results."""
-    strategy = metrics["strategy"]
-    uniform, adaptive = metrics["uniform"], metrics["adaptive"]
-    reduction = 100 * (1 - adaptive["cells"] / uniform["cells"]) if uniform["cells"] else 0
-    report = f"""# Member 4 — Adaptive Grid Engine
+    uniform_cells = len(uniform)
+    adaptive_cells = len(adaptive)
 
-## How exactly does variable-resolution mapping work?
+    reduction = (
+        100
+        * (
+            1
+            - adaptive_cells / uniform_cells
+        )
+        if uniform_cells
+        else 0
+    )
 
-Each LiDAR point `(x, y, z)` is assigned a horizontal sensor distance:
-
-`distance = sqrt(x² + y²)`
-
-The distance selects exactly one grid resolution:
-
-| Range from sensor | Resolution | Rationale |
-| --- | ---: | --- |
-| 0–{strategy['near_band_m'][1]:g} m | {strategy['fine_m']:.2f} m | Nearby obstacle geometry needs the most detail. |
-| {strategy['middle_band_m'][0]:g}–{strategy['middle_band_m'][1]:g} m | {strategy['medium_m']:.2f} m | Mid-range structure is retained with less storage. |
-| {strategy['far_band_m'][0]:g}–{strategy['far_band_m'][1]:g} m | {strategy['coarse_m']:.2f} m | Distant context is represented compactly. |
-
-The selected cell is found using `floor(x / resolution)` and `floor(y / resolution)`. Points sharing that cell are aggregated into one record:
-
-`{{x, y, resolution, elevation_max, elevation_mean, semantic_class, point_count}}`
-
-`elevation_max` preserves obstacle height; `elevation_mean` provides a smoother terrain estimate; `semantic_class` is the majority class of the points in the cell.
-
-## Same-input comparison
-
-The following is from the generated demonstration scene containing **{metrics['input_points']:,} points**. It is reproducible because the synthetic scene uses a fixed random seed.
-
-| Measure | Uniform grid ({strategy['uniform_resolution_m']:.2f} m everywhere) | Adaptive grid | 
-| --- | ---: | ---: |
-| Occupied cells / stored cell records | {uniform['cells']:,} | {adaptive['cells']:,} |
-| Measured processing time (one local run) | {uniform['processing_ms']:.3f} ms | {adaptive['processing_ms']:.3f} ms |
-
-The adaptive representation used **{reduction:.1f}% fewer occupied cell records** on this specific input. This is a measured result for this scene and configuration, not a universal performance claim.
-
-## Why adaptive resolution helps
-
-Uniform fine cells allocate the same detail to nearby obstacles and distant background. The adaptive approach spends the smallest cells only where detail matters most, and uses larger far-range cells to reduce the number of occupied records while retaining elevation and class summaries. The actual reduction varies with point density, sensor range, and chosen thresholds.
-
-## Run with your LiDAR data
-
-```powershell
-python adaptive_grid.py --input your_points.csv --output-dir run
-```
-
-Input CSV headers must be `x,y,z`; `semantic_class` is optional. The run creates adaptive and uniform cell CSVs, a JSON comparison, and a top-down SVG diagram.
-"""
-    path.write_text(report, encoding="utf-8")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Build uniform and adaptive LiDAR elevation grids.")
-    parser.add_argument("--input", type=Path, help="CSV with x,y,z[,semantic_class]")
-    parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
-    parser.add_argument("--near", type=float, default=10.0)
-    parser.add_argument("--middle", type=float, default=30.0)
-    parser.add_argument("--fine", type=float, default=0.25)
-    parser.add_argument("--medium", type=float, default=0.75)
-    parser.add_argument("--coarse", type=float, default=2.0)
-    parser.add_argument("--uniform", type=float, default=0.25, help="Uniform comparison resolution")
-    args = parser.parse_args()
-    points = load_points(args.input) if args.input else synthetic_scene()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    adaptive, adaptive_ms = timed(lambda p: adaptive_grid(p, args.near, args.middle, args.fine, args.medium, args.coarse), points)
-    uniform, uniform_ms = timed(lambda p: uniform_grid(p, args.uniform), points)
-    save_cells(args.output_dir / "adaptive_cells.csv", adaptive)
-    save_cells(args.output_dir / "uniform_cells.csv", uniform)
-    write_top_down_svg(args.output_dir / "adaptive_grid_top_down.svg", adaptive, args.near, args.middle)
-    metrics = {
+    return {
         "input_points": len(points),
-        "strategy": {"near_band_m": [0, args.near], "middle_band_m": [args.near, args.middle],
-                     "far_band_m": [args.middle, 100], "fine_m": args.fine,
-                     "medium_m": args.medium, "coarse_m": args.coarse,
-                     "uniform_resolution_m": args.uniform},
-        "uniform": {"cells": len(uniform), "stored_cell_values": len(uniform), "processing_ms": round(uniform_ms, 3)},
-        "adaptive": {"cells": len(adaptive), "stored_cell_values": len(adaptive), "processing_ms": round(adaptive_ms, 3)},
-        "adaptive_point_assignments_by_zone": zone_summary(points, args.near, args.middle),
-        "note": "Processing measurements are one local run; compare them only on the same machine and input.",
-    }
-    (args.output_dir / "comparison.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    write_project_report(args.output_dir / "M4_PROJECT_REPORT.md", metrics)
-    print(json.dumps(metrics, indent=2))
 
+        "strategy": {
+            "near_band_m": [0, near],
+            "middle_band_m": [
+                near,
+                middle,
+            ],
+            "far_band_m": [
+                middle,
+                100,
+            ],
+            "fine_m": fine,
+            "medium_m": medium,
+            "coarse_m": coarse,
+            "uniform_resolution_m":
+                uniform_resolution,
+        },
+
+        "uniform": {
+            "cells": uniform_cells,
+            "processing_ms":
+                round(uniform_ms, 3),
+        },
+
+        "adaptive": {
+            "cells": adaptive_cells,
+            "processing_ms":
+                round(adaptive_ms, 3),
+        },
+
+        "cell_reduction_percent":
+            round(reduction, 2),
+
+        "adaptive_point_assignments_by_zone":
+            zone_summary(
+                points,
+                near,
+                middle,
+            ),
+    }
+
+
+# ======================================================================
+# COMMAND LINE TEST / DEMO
+# ======================================================================
+
+def main():
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build adaptive and uniform "
+            "LiDAR 2.5D grids."
+        )
+    )
+
+    parser.add_argument(
+        "--input",
+        type=Path,
+        help=(
+            "CSV containing "
+            "x,y,z[,semantic_class]"
+        ),
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("outputs"),
+    )
+
+    parser.add_argument(
+        "--near",
+        type=float,
+        default=10.0,
+    )
+
+    parser.add_argument(
+        "--middle",
+        type=float,
+        default=30.0,
+    )
+
+    parser.add_argument(
+        "--fine",
+        type=float,
+        default=0.25,
+    )
+
+    parser.add_argument(
+        "--medium",
+        type=float,
+        default=0.75,
+    )
+
+    parser.add_argument(
+        "--coarse",
+        type=float,
+        default=2.0,
+    )
+
+    parser.add_argument(
+        "--uniform",
+        type=float,
+        default=0.25,
+    )
+
+    args = parser.parse_args()
+
+    args.output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    # --------------------------------------------------------------
+    # Load data
+    # --------------------------------------------------------------
+
+    if args.input:
+
+        points = load_points(
+            args.input
+        )
+
+    else:
+
+        print(
+            "No input supplied. "
+            "Using synthetic demo scene."
+        )
+
+        points = synthetic_scene()
+
+    # --------------------------------------------------------------
+    # Build grids
+    # --------------------------------------------------------------
+
+    adaptive, adaptive_ms = timed(
+        lambda p: adaptive_grid(
+            p,
+            args.near,
+            args.middle,
+            args.fine,
+            args.medium,
+            args.coarse,
+        ),
+        points,
+    )
+
+    uniform, uniform_ms = timed(
+        lambda p: uniform_grid(
+            p,
+            args.uniform,
+        ),
+        points,
+    )
+
+    # --------------------------------------------------------------
+    # Save
+    # --------------------------------------------------------------
+
+    save_cells(
+        args.output_dir
+        / "adaptive_cells.csv",
+        adaptive,
+    )
+
+    save_cells(
+        args.output_dir
+        / "uniform_cells.csv",
+        uniform,
+    )
+
+    metrics = calculate_metrics(
+        points=points,
+        uniform=uniform,
+        adaptive=adaptive,
+        uniform_ms=uniform_ms,
+        adaptive_ms=adaptive_ms,
+        near=args.near,
+        middle=args.middle,
+        fine=args.fine,
+        medium=args.medium,
+        coarse=args.coarse,
+        uniform_resolution=args.uniform,
+    )
+
+    comparison_path = (
+        args.output_dir
+        / "comparison.json"
+    )
+
+    comparison_path.write_text(
+        json.dumps(
+            metrics,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    print(
+        json.dumps(
+            metrics,
+            indent=2,
+        )
+    )
+
+
+# ======================================================================
+# ENTRY POINT
+# ======================================================================
 
 if __name__ == "__main__":
     main()
