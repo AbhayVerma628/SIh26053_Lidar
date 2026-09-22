@@ -8,11 +8,12 @@ from ml.semantic_segmentation import semantic_segmentation as ml_segmentation, c
 # Member 4's grid
 from grid.adaptive_grid import adaptive_grid as build_adaptive_grid, points_from_arrays
 
-# Member 3's visualization
+# Member 3's updated visualization tools (including the new navigation map)
 from visualization.lidar_visualization import (
     print_visualization_summary, 
     plot_adaptive_grid, 
     plot_25d_elevation, 
+    plot_navigation_map,
     visualize_semantic
 )
 
@@ -52,9 +53,7 @@ def adaptive_grid(data):
     print("5. Generating adaptive grid...")
     points_np, labels_np = data
     
-    # Use Member 4's new native adapter to translate the arrays into Point objects
     point_objects = points_from_arrays(points_np, labels_np)
-        
     cells = build_adaptive_grid(point_objects)
     print(f"   -> Compressed {len(points_np)} points into {len(cells)} cells.")
     
@@ -73,6 +72,10 @@ def visualize(data):
     print_visualization_summary(points, labels, cells)
     plot_adaptive_grid(cells, title="TERA PULSE - Adaptive Grid Map")
     plot_25d_elevation(cells, title="TERA PULSE - 2.5D Elevation Map")
+    
+    # NEW: Render Member 3's navigation/traversability map
+    plot_navigation_map(cells, title="TERA PULSE - Navigation / Traversability Map")
+    
     visualize_semantic(points, labels, window_name="TERA PULSE - 3D Semantic LiDAR")
 
 
