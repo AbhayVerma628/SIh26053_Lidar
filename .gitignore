@@ -2,3 +2,6 @@ venv/
 data/
 ScreenCapture_*.png
 ScreenCamera_*.json
+
+__pycache__/
+*.pyc
