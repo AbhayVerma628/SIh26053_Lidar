@@ -21,12 +21,12 @@
   "uniform": {
     "cells": 11288,
     "stored_cell_values": 11288,
-    "processing_ms": 56.058
+    "processing_ms": 115.946
   },
   "adaptive": {
     "cells": 6656,
     "stored_cell_values": 6656,
-    "processing_ms": 35.657
+    "processing_ms": 73.848
   },
   "adaptive_point_assignments_by_zone": {
     "fine_0_to_near_m": 182,

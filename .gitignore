@@ -1,4 +1,22 @@
-virtenv/
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Bytecode and caches
 __pycache__/
 *.py[cod]
-.pytest_cache/
+*$py.class
+*.log
+
+# Backups and local screen captures
+dashboard_code_backup.txt
+navigation_backup/
+ScreenCapture_*.png
+ScreenCamera_*.json
+
+# Data directory (keep sample LiDAR frame for demo)
+data/*
+!data/lidar/
+!data/lidar/0001.pcd
+!data/.gitkeep
