@@ -1,18 +1,18 @@
-# Member 4 — Adaptive Grid Engine
+# Member 4 ΓÇö Adaptive Grid Engine
 
 ## How exactly does variable-resolution mapping work?
 
 Each LiDAR point `(x, y, z)` is assigned a horizontal sensor distance:
 
-`distance = sqrt(x² + y²)`
+`distance = sqrt(x┬▓ + y┬▓)`
 
 The distance selects exactly one grid resolution:
 
 | Range from sensor | Resolution | Rationale |
 | --- | ---: | --- |
-| 0–10 m | 0.25 m | Nearby obstacle geometry needs the most detail. |
-| 10–30 m | 0.75 m | Mid-range structure is retained with less storage. |
-| 30–100 m | 2.00 m | Distant context is represented compactly. |
+| 0ΓÇô10 m | 0.25 m | Nearby obstacle geometry needs the most detail. |
+| 10ΓÇô30 m | 0.75 m | Mid-range structure is retained with less storage. |
+| 30ΓÇô100 m | 2.00 m | Distant context is represented compactly. |
 
 The selected cell is found using `floor(x / resolution)` and `floor(y / resolution)`. Points sharing that cell are aggregated into one record:
 
@@ -27,7 +27,7 @@ The following is from the generated demonstration scene containing **11,420 poin
 | Measure | Uniform grid (0.25 m everywhere) | Adaptive grid | 
 | --- | ---: | ---: |
 | Occupied cells / stored cell records | 11,288 | 6,656 |
-| Measured processing time (one local run) | 56.058 ms | 35.657 ms |
+| Measured processing time (one local run) | 52.879 ms | 36.736 ms |
 
 The adaptive representation used **41.0% fewer occupied cell records** on this specific input. This is a measured result for this scene and configuration, not a universal performance claim.
 

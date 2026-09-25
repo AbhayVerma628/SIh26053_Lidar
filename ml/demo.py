@@ -1,4 +1,4 @@
-"""Generate a reproducible sample PCD frame, run the baseline, and save a screenshot."""
+﻿"""Generate a reproducible sample PCD frame, run the baseline, and save a screenshot."""
 
 from __future__ import annotations
 

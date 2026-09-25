@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERA PULSE — Real-Time Adaptive 2.5D LiDAR Perception & Navigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0f18;
+      --bg-panel: #111927;
+      --bg-card: #182234;
+      --bg-hover: #223048;
+      --border: #233550;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-cyan: #06b6d4;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    mono, code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Header */
+    header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 56px;
+      flex-shrink: 0;
+    }
+    .logo-area { display: flex; align-items: center; gap: 12px; }
+    .logo-badge {
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      color: #fff;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      letter-spacing: 1px;
+    }
+    .logo-title { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+    .logo-sub { font-size: 12px; color: var(--text-muted); }
+    .header-actions { display: flex; align-items: center; gap: 14px; }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--accent-green);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
+    /* Top HUD Metrics */
+    .hud-bar {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      height: 68px;
+      flex-shrink: 0;
+    }
+    .hud-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .hud-label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .hud-val { font-size: 17px; font-weight: 800; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+    .hud-sub { font-size: 10px; color: var(--accent-green); font-weight: 500; }
+
+    /* Main Container */
+    .main-container {
+      flex: 1;
+      display: flex;
+      height: calc(100vh - 124px);
+      overflow: hidden;
+    }
+
+    /* Left Map Canvas Area */
+    .map-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: #06090e;
+    }
+    .map-toolbar {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      background: rgba(17, 25, 39, 0.9);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .toggle-chip {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+    .toggle-chip.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+    .map-canvas-container {
+      flex: 1;
+      position: relative;
+      cursor: crosshair;
+    }
+    canvas#tacticalMap {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Floating Gauges HUD on Map */
+    .telemetry-overlay {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 250px;
+    }
+    .telemetry-card {
+      background: rgba(17, 25, 39, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .telem-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px; }
+    .telem-title { font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+    .telem-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--accent-blue);
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .progress-bar-bg { background: rgba(255, 255, 255, 0.1); height: 6px; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #06b6d4, #10b981); width: 0%; transition: width 0.1s linear; }
+
+    /* Simulation Playback Bar */
+    .playback-bar {
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 58px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .play-btn {
+      background: var(--accent-cyan);
+      border: none;
+      color: #042f2e;
+      font-weight: 800;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .play-btn:hover { background: #22d3ee; }
+    .sec-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 7px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .sec-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+    .time-slider-wrap { flex: 1; display: flex; align-items: center; gap: 12px; }
+    input[type=range] {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    .speed-pills { display: flex; gap: 4px; }
+    .speed-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .speed-btn.active { background: var(--border); color: #fff; }
+
+    /* Right Control Sidebar */
+    .sidebar {
+      width: 380px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-dark);
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 12px 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--accent-cyan);
+      background: var(--bg-panel);
+    }
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .panel-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .param-group { margin-bottom: 12px; }
+    .param-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 11.5px; }
+    .param-name { color: var(--text-main); font-weight: 500; }
+    .param-val { color: var(--accent-amber); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .btn-recalc {
+      width: 100%;
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      color: #fff;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
+      transition: all 0.2s;
+    }
+    .btn-recalc:hover { opacity: 0.95; transform: translateY(-1px); }
+
+    /* Legend */
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; margin-bottom: 6px; }
+    .legend-box { width: 12px; height: 12px; border-radius: 2px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-area">
+      <div class="logo-badge">TERA PULSE</div>
+      <div>
+        <div class="logo-title">Adaptive 2.5D LiDAR Perception & Navigation</div>
+        <div class="logo-sub">Smart India Hackathon 2026 • Problem Statement SIH26053 • DRDO Domain</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span>Localhost Engine Online</span>
+      </div>
+      <button class="sec-btn" onclick="triggerReset()">Reset Defaults</button>
+      <button class="play-btn" onclick="triggerRecalculate()">⚡ Re-Run Pipeline</button>
+    </div>
+  </header>
+
+  <!-- Top Metrics HUD -->
+  <div class="hud-bar">
+    <div class="hud-card">
+      <div class="hud-label">Raw Point Cloud</div>
+      <div class="hud-val" id="hudRawPoints">20,672</div>
+      <div class="hud-sub" id="hudCleanPoints">9,132 clean (44.2%)</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">Adaptive 2.5D Cells</div>
+      <div class="hud-val" id="hudAdaptiveCells" style="color: var(--accent-cyan);">976</div>
+      <div class="hud-sub" id="hudUniformCells">vs 2,888 uniform</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">Memory Reduction</div>
+      <div class="hud-val" id="hudReduction" style="color: var(--accent-green);">-66.2%</div>
+      <div class="hud-sub" id="hudLatency">16.6 ms latency (60 FPS)</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">Traversable Area</div>
+      <div class="hud-val" id="hudTraversable">83.7%</div>
+      <div class="hud-sub" id="hudBlocked">817 clear / 159 obstacles</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">A* Route Distance</div>
+      <div class="hud-val" id="hudDistance" style="color: var(--accent-amber);">28.92 m</div>
+      <div class="hud-sub" id="hudPathCells">47 collision-free cells</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">Autonomous Mission</div>
+      <div class="hud-val" id="hudMissionTime" style="color: var(--accent-purple);">13.8 s</div>
+      <div class="hud-sub" id="hudAvgSpeed">Pure Pursuit @ 7.1 km/h</div>
+    </div>
+  </div>
+
+  <!-- Main Work Area -->
+  <div class="main-container">
+
+    <!-- Interactive Canvas & Visualizer -->
+    <div class="map-area">
+
+      <!-- Map Toolbar Layer Toggles -->
+      <div class="map-toolbar">
+        <button class="toggle-chip active" id="chipPoints" onclick="toggleLayer('points')">LiDAR Points</button>
+        <button class="toggle-chip active" id="chipCells" onclick="toggleLayer('cells')">2.5D Cells</button>
+        <button class="toggle-chip active" id="chipRings" onclick="toggleLayer('rings')">Foveated Rings</button>
+        <button class="toggle-chip active" id="chipRoute" onclick="toggleLayer('route')">A* Route</button>
+        <button class="toggle-chip active" id="chipTraj" onclick="toggleLayer('traj')">Vehicle Trajectory</button>
+        <button class="toggle-chip" id="chipColorMode" onclick="toggleColorMode()">Color: Class</button>
+      </div>
+
+      <!-- Live Floating Telemetry Overlay -->
+      <div class="telemetry-overlay">
+        <div class="telemetry-card">
+          <div class="telem-row">
+            <span class="telem-title">UGV Kinematics</span>
+            <span class="telem-badge" id="telemStatus">CRUISING</span>
+          </div>
+          <div class="telem-row">
+            <span class="hud-label">Current Velocity:</span>
+            <span class="mono" id="telemSpeed" style="color: var(--accent-cyan); font-weight: 700;">7.2 km/h</span>
+          </div>
+          <div class="telem-row">
+            <span class="hud-label">Steering Angle (δ):</span>
+            <span class="mono" id="telemSteer" style="color: var(--accent-purple); font-weight: 700;">+4.2°</span>
+          </div>
+          <div class="telem-row">
+            <span class="hud-label">Vehicle Heading (θ):</span>
+            <span class="mono" id="telemHeading">-12.8°</span>
+          </div>
+          <div class="telem-row">
+            <span class="hud-label">Distance to Goal:</span>
+            <span class="mono" id="telemDistGoal" style="color: var(--accent-red); font-weight: 700;">14.2 m</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-fill" id="telemProgress"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="map-canvas-container" id="canvasContainer">
+        <canvas id="tacticalMap"></canvas>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="playback-bar">
+        <button class="play-btn" id="btnPlay" onclick="togglePlay()">▶ Play Mission</button>
+        <button class="sec-btn" onclick="resetPlayback()">⏮ Reset</button>
+        
+        <div class="time-slider-wrap">
+          <span class="mono" id="lblCurrentTime" style="font-size: 12px; color: var(--text-muted); width: 45px;">0.0s</span>
+          <input type="range" id="timeSlider" min="0" max="100" value="0" step="0.5" oninput="scrubTime(this.value)">
+          <span class="mono" id="lblTotalTime" style="font-size: 12px; color: var(--text-muted); width: 45px;">13.8s</span>
+        </div>
+
+        <div class="speed-pills">
+          <button class="speed-btn active" id="sp1" onclick="setSpeed(1)">1x</button>
+          <button class="speed-btn" id="sp2" onclick="setSpeed(2)">2x</button>
+          <button class="speed-btn" id="sp5" onclick="setSpeed(5)">5x</button>
+        </div>
+
+        <button class="sec-btn" onclick="resetView()">🎯 Center View</button>
+      </div>
+
+    </div>
+
+    <!-- Right Tuning & Control Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" onclick="switchTab('tuning')">Live Controls</button>
+        <button class="tab-btn" onclick="switchTab('classes')">Classes</button>
+        <button class="tab-btn" onclick="switchTab('telemetry')">Telemetry Log</button>
+      </div>
+
+      <div class="sidebar-content">
+
+        <!-- Tab 1: Live Parameter Tuning -->
+        <div id="tabTuning">
+          <div class="panel-section">
+            <div class="section-title">🎯 Biomimetic Foveated Bands</div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Near Zone Radius (m)</span>
+                <span class="param-val" id="valNearBand">10.0 m</span>
+              </div>
+              <input type="range" id="paramNearBand" min="5" max="25" step="1" value="10" oninput="updateParamLabel('valNearBand', this.value, ' m')">
+            </div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Middle Zone Radius (m)</span>
+                <span class="param-val" id="valMidBand">30.0 m</span>
+              </div>
+              <input type="range" id="paramMidBand" min="15" max="50" step="1" value="30" oninput="updateParamLabel('valMidBand', this.value, ' m')">
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="section-title">📐 Variable Grid Resolutions</div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Fine Cell (Near 0–10m)</span>
+                <span class="param-val" id="valFineRes">0.25 m</span>
+              </div>
+              <input type="range" id="paramFineRes" min="0.10" max="0.50" step="0.05" value="0.25" oninput="updateParamLabel('valFineRes', this.value, ' m')">
+            </div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Middle Cell (10–30m)</span>
+                <span class="param-val" id="valMidRes">0.75 m</span>
+              </div>
+              <input type="range" id="paramMidRes" min="0.40" max="1.50" step="0.05" value="0.75" oninput="updateParamLabel('valMidRes', this.value, ' m')">
+            </div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Coarse Cell (>30m)</span>
+                <span class="param-val" id="valCoarseRes">2.00 m</span>
+              </div>
+              <input type="range" id="paramCoarseRes" min="1.00" max="4.00" step="0.25" value="2.00" oninput="updateParamLabel('valCoarseRes', this.value, ' m')">
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="section-title">🚗 Vehicle Kinematics & Speed</div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Pure Pursuit Lookahead (m)</span>
+                <span class="param-val" id="valLookahead">1.50 m</span>
+              </div>
+              <input type="range" id="paramLookahead" min="0.8" max="3.5" step="0.1" value="1.5" oninput="updateParamLabel('valLookahead', this.value, ' m')">
+            </div>
+
+            <div class="param-group">
+              <div class="param-header">
+                <span class="param-name">Max Velocity (m/s)</span>
+                <span class="param-val" id="valMaxSpeed">3.5 m/s (12.6 km/h)</span>
+              </div>
+              <input type="range" id="paramMaxSpeed" min="1.0" max="6.0" step="0.5" value="3.5" oninput="updateMaxSpeedLabel(this.value)">
+            </div>
+          </div>
+
+          <button class="btn-recalc" onclick="triggerRecalculate()">
+            <span>⚡ Apply & Recompute Grid</span>
+          </button>
+        </div>
+
+        <!-- Tab 2: Semantic Classes -->
+        <div id="tabClasses" style="display: none;">
+          <div class="panel-section">
+            <div class="section-title">🎨 Map Elements Legend</div>
+            <div class="legend-item">
+              <div class="legend-box" style="background: rgba(16, 185, 129, 0.7); border: 1px solid #10b981;"></div>
+              <span>Traversable Ground Cell (Drivable)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-box" style="background: rgba(239, 68, 68, 0.7); border: 1px solid #ef4444;"></div>
+              <span>Blocked Obstacle Cell (Non-Drivable)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-box" style="background: #eab308; border-radius: 50%;"></div>
+              <span>A* Path Cells (Discrete Route)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-box" style="background: #06b6d4; height: 3px;"></div>
+              <span>Smoothed Pure Pursuit Trajectory</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-box" style="background: #3b82f6; border-radius: 50%;"></div>
+              <span>Vehicle Start Location</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-box" style="background: #ef4444; border-radius: 50%;"></div>
+              <span>Mission Goal Target</span>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="section-title">📊 Semantic Label Distribution</div>
+            <div id="classBreakdownHtml"></div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Telemetry Stream -->
+        <div id="tabTelemetry" style="display: none;">
+          <div class="panel-section" style="max-height: 500px; overflow-y: auto;">
+            <div class="section-title">📈 10Hz Pure Pursuit Telemetry</div>
+            <table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;" class="mono">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <th style="padding: 4px;">Time</th>
+                  <th style="padding: 4px;">Vel</th>
+                  <th style="padding: 4px;">Steer</th>
+                  <th style="padding: 4px;">Dist</th>
+                </tr>
+              </thead>
+              <tbody id="telemetryTableBody">
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // State
+    let GLOBAL_DATA = null;
+    let layers = { points: true, cells: true, rings: true, route: true, traj: true };
+    let colorMode = 'class'; // 'class' or 'elevation'
+    let isPlaying = false;
+    let playbackIdx = 0;
+    let playbackSpeed = 1;
+    let animationInterval = null;
+
+    // Canvas & View State
+    const canvas = document.getElementById('tacticalMap');
+    const ctx = canvas.getContext('2d');
+    let view = { offsetX: 0, offsetY: 0, scale: 12.0, isDragging: false, startX: 0, startY: 0 };
+
+    function resizeCanvas() {
+      const container = document.getElementById('canvasContainer');
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      if (GLOBAL_DATA && view.offsetX === 0) resetView();
+      render();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // Coordinate Transforms
+    function worldToScreen(wx, wy) {
+      // Invert Y so positive Y is up
+      return {
+        x: canvas.width / 2 + (wx - view.offsetX) * view.scale,
+        y: canvas.height / 2 - (wy - view.offsetY) * view.scale,
+      };
+    }
+    function screenToWorld(sx, sy) {
+      return {
+        x: (sx - canvas.width / 2) / view.scale + view.offsetX,
+        y: -(sy - canvas.height / 2) / view.scale + view.offsetY,
+      };
+    }
+
+    // Mouse Interaction: Pan & Zoom
+    canvas.addEventListener('mousedown', (e) => {
+      view.isDragging = true;
+      view.startX = e.clientX;
+      view.startY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => { view.isDragging = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (!view.isDragging) return;
+      const dx = e.clientX - view.startX;
+      const dy = e.clientY - view.startY;
+      view.offsetX -= dx / view.scale;
+      view.offsetY += dy / view.scale;
+      view.startX = e.clientX;
+      view.startY = e.clientY;
+      render();
+    });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      view.scale = Math.max(2.0, Math.min(60.0, view.scale * zoomFactor));
+      render();
+    });
+
+    function resetView() {
+      if (!GLOBAL_DATA || !GLOBAL_DATA.points || GLOBAL_DATA.points.length === 0) return;
+      let minX = 999, maxX = -999, minY = 999, maxY = -999;
+      GLOBAL_DATA.points.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+      view.offsetX = (minX + maxX) / 2;
+      view.offsetY = (minY + maxY) / 2;
+      view.scale = Math.min(canvas.width / (maxX - minX + 10), canvas.height / (maxY - minY + 10));
+      render();
+    }
+
+    // Render Pipeline
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Grid background dots
+      ctx.fillStyle = '#1e293b';
+      const step = 5; // 5 meters
+      const leftW = screenToWorld(0, canvas.height);
+      const rightW = screenToWorld(canvas.width, 0);
+
+      const startGridX = Math.floor(leftW.x / step) * step;
+      const endGridX = Math.ceil(rightW.x / step) * step;
+      const startGridY = Math.floor(leftW.y / step) * step;
+      const endGridY = Math.ceil(rightW.y / step) * step;
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      for (let x = startGridX; x <= endGridX; x += step) {
+        const p1 = worldToScreen(x, startGridY);
+        const p2 = worldToScreen(x, endGridY);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      }
+      for (let y = startGridY; y <= endGridY; y += step) {
+        const p1 = worldToScreen(startGridX, y);
+        const p2 = worldToScreen(endGridX, y);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      }
+
+      if (!GLOBAL_DATA) return;
+
+      // Current vehicle position along trajectory
+      let carPos = { x: 0, y: 0 };
+      if (GLOBAL_DATA.telemetry && GLOBAL_DATA.telemetry.length > 0) {
+        const cur = GLOBAL_DATA.telemetry[playbackIdx];
+        if (cur) {
+          carPos = { x: cur.x, y: cur.y };
+        }
+      } else if (GLOBAL_DATA.start) {
+        carPos = { x: GLOBAL_DATA.start.x, y: GLOBAL_DATA.start.y };
+      }
+
+      // 1. Foveated Concentric Rings (Centered dynamically on the moving vehicle)
+      if (layers.rings) {
+        const carScreen = worldToScreen(carPos.x, carPos.y);
+        const rNear = (GLOBAL_DATA.params?.near_band || 10) * view.scale;
+        const rMid = (GLOBAL_DATA.params?.mid_band || 30) * view.scale;
+
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.40)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath(); ctx.arc(carScreen.x, carScreen.y, rNear, 0, Math.PI * 2); ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(carScreen.x, carScreen.y, rMid, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // 2. 2.5D Adaptive Grid Cells (Dynamically re-evaluates resolution relative to moving car)
+      if (layers.cells) {
+        const nearBand = GLOBAL_DATA.params?.near_band || 10.0;
+        const midBand = GLOBAL_DATA.params?.mid_band || 30.0;
+        const fineRes = GLOBAL_DATA.params?.fine_res || 0.25;
+        const midRes = GLOBAL_DATA.params?.mid_res || 0.75;
+        const coarseRes = GLOBAL_DATA.params?.coarse_res || 2.00;
+
+        if (GLOBAL_DATA.points && GLOBAL_DATA.points.length > 0) {
+          // Dynamic foveated spatial hashing centered on the moving car
+          const buckets = new Map();
+
+          for (let i = 0; i < GLOBAL_DATA.points.length; i++) {
+            const p = GLOBAL_DATA.points[i];
+            const dist = Math.hypot(p.x - carPos.x, p.y - carPos.y);
+            let res = coarseRes;
+            if (dist < nearBand) {
+              res = fineRes;
+            } else if (dist < midBand) {
+              res = midRes;
+            }
+
+            const ix = Math.floor(p.x / res);
+            const iy = Math.floor(p.y / res);
+            const key = res + "_" + ix + "_" + iy;
+
+            let b = buckets.get(key);
+            if (!b) {
+              b = {
+                x: (ix + 0.5) * res,
+                y: (iy + 0.5) * res,
+                res: res,
+                groundCount: 0,
+                obstacleCount: 0,
+              };
+              buckets.set(key, b);
+            }
+            if (p.cls === 0) b.groundCount++;
+            else b.obstacleCount++;
+          }
+
+          // Render dynamically adapted cells
+          buckets.forEach(cell => {
+            const pt = worldToScreen(cell.x, cell.y);
+            const size = cell.res * view.scale;
+            const isTrav = cell.obstacleCount === 0 || (cell.groundCount >= cell.obstacleCount);
+
+            if (isTrav) {
+              ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+              ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+            } else {
+              ctx.fillStyle = 'rgba(239, 68, 68, 0.40)';
+              ctx.strokeStyle = 'rgba(239, 68, 68, 0.70)';
+            }
+
+            ctx.lineWidth = 0.7;
+            ctx.fillRect(pt.x - size / 2, pt.y - size / 2, size, size);
+            ctx.strokeRect(pt.x - size / 2, pt.y - size / 2, size, size);
+          });
+        } else if (GLOBAL_DATA.cells) {
+          // Static fallback
+          GLOBAL_DATA.cells.forEach(cell => {
+            const pt = worldToScreen(cell.x, cell.y);
+            const size = cell.res * view.scale;
+            if (cell.trav) {
+              ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+              ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+            } else {
+              ctx.fillStyle = 'rgba(239, 68, 68, 0.40)';
+              ctx.strokeStyle = 'rgba(239, 68, 68, 0.70)';
+            }
+            ctx.lineWidth = 0.7;
+            ctx.fillRect(pt.x - size / 2, pt.y - size / 2, size, size);
+            ctx.strokeRect(pt.x - size / 2, pt.y - size / 2, size, size);
+          });
+        }
+      }
+
+      // 3. Raw LiDAR Point Cloud
+      if (layers.points && GLOBAL_DATA.points) {
+        GLOBAL_DATA.points.forEach(p => {
+          const pt = worldToScreen(p.x, p.y);
+          if (colorMode === 'class') {
+            if (p.cls === 0) ctx.fillStyle = 'rgba(74, 222, 128, 0.75)'; // Ground
+            else if (p.cls === 1) ctx.fillStyle = 'rgba(248, 113, 113, 0.85)'; // Static
+            else if (p.cls === 2) ctx.fillStyle = 'rgba(96, 165, 250, 0.9)'; // Dynamic
+            else ctx.fillStyle = 'rgba(148, 163, 184, 0.5)'; // Unknown
+          } else {
+            // Elevation spectrum
+            const normZ = Math.max(0, Math.min(1, (p.z + 2.0) / 4.0));
+            ctx.fillStyle = `hsl(${260 - normZ * 200}, 85%, 55%)`;
+          }
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // 4. A* Planned Route
+      if (layers.route && GLOBAL_DATA.path && GLOBAL_DATA.path.length > 0) {
+        ctx.strokeStyle = '#eab308';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        GLOBAL_DATA.path.forEach((c, idx) => {
+          const pt = worldToScreen(c.x, c.y);
+          if (idx === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // 5. Continuous Smoothed Vehicle Trajectory
+      if (layers.traj && GLOBAL_DATA.telemetry && GLOBAL_DATA.telemetry.length > 0) {
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        GLOBAL_DATA.telemetry.forEach((t, idx) => {
+          const pt = worldToScreen(t.x, t.y);
+          if (idx === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+      }
+
+      // 6. Start & Goal Markers
+      if (GLOBAL_DATA.start) {
+        const s = worldToScreen(GLOBAL_DATA.start.x, GLOBAL_DATA.start.y);
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Inter'; ctx.fillText('START', s.x + 10, s.y - 4);
+      }
+      if (GLOBAL_DATA.goal) {
+        const g = worldToScreen(GLOBAL_DATA.goal.x, GLOBAL_DATA.goal.y);
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath(); ctx.arc(g.x, g.y, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Inter'; ctx.fillText('GOAL', g.x + 10, g.y - 4);
+      }
+
+      // 7. Live Animated Vehicle Icon
+      if (GLOBAL_DATA.telemetry && GLOBAL_DATA.telemetry.length > 0) {
+        const cur = GLOBAL_DATA.telemetry[playbackIdx];
+        if (cur) {
+          const vPt = worldToScreen(cur.x, cur.y);
+          const rad = (cur.heading_deg * Math.PI) / 180;
+
+          ctx.save();
+          ctx.translate(vPt.x, vPt.y);
+          ctx.rotate(-rad); // Inverted Y coordinate system
+
+          // Vehicle body box
+          ctx.fillStyle = '#0284c7';
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.fillRect(-12, -7, 24, 14);
+          ctx.strokeRect(-12, -7, 24, 14);
+
+          // Front direction nose
+          ctx.fillStyle = '#e0f2fe';
+          ctx.beginPath();
+          ctx.moveTo(12, -4);
+          ctx.lineTo(17, 0);
+          ctx.lineTo(12, 4);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.restore();
+        }
+      }
+    }
+
+    // Playback Simulation Engine
+    function togglePlay() {
+      if (isPlaying) {
+        pausePlayback();
+      } else {
+        startPlayback();
+      }
+    }
+
+    function startPlayback() {
+      if (!GLOBAL_DATA || !GLOBAL_DATA.telemetry) return;
+      isPlaying = true;
+      document.getElementById('btnPlay').textContent = '⏸ Pause';
+
+      if (animationInterval) clearInterval(animationInterval);
+      const intervalMs = Math.max(16, Math.floor(100 / playbackSpeed));
+
+      animationInterval = setInterval(() => {
+        playbackIdx++;
+        if (playbackIdx >= GLOBAL_DATA.telemetry.length) {
+          playbackIdx = GLOBAL_DATA.telemetry.length - 1;
+          pausePlayback();
+        }
+        updatePlaybackUI();
+        render();
+      }, intervalMs);
+    }
+
+    function pausePlayback() {
+      isPlaying = false;
+      document.getElementById('btnPlay').textContent = '▶ Play Mission';
+      if (animationInterval) clearInterval(animationInterval);
+    }
+
+    function resetPlayback() {
+      pausePlayback();
+      playbackIdx = 0;
+      updatePlaybackUI();
+      render();
+    }
+
+    function scrubTime(val) {
+      if (!GLOBAL_DATA || !GLOBAL_DATA.telemetry) return;
+      const pct = val / 100.0;
+      playbackIdx = Math.floor(pct * (GLOBAL_DATA.telemetry.length - 1));
+      updatePlaybackUI();
+      render();
+    }
+
+    function setSpeed(spd) {
+      playbackSpeed = spd;
+      ['sp1', 'sp2', 'sp5'].forEach(id => document.getElementById(id).classList.remove('active'));
+      document.getElementById('sp' + spd).classList.add('active');
+      if (isPlaying) {
+        startPlayback();
+      }
+    }
+
+    function updatePlaybackUI() {
+      if (!GLOBAL_DATA || !GLOBAL_DATA.telemetry || GLOBAL_DATA.telemetry.length === 0) return;
+      const cur = GLOBAL_DATA.telemetry[playbackIdx];
+      if (!cur) return;
+
+      document.getElementById('lblCurrentTime').textContent = cur.time_sec.toFixed(1) + 's';
+      document.getElementById('timeSlider').value = (playbackIdx / (GLOBAL_DATA.telemetry.length - 1)) * 100;
+
+      // Update HUD Gauges
+      document.getElementById('telemStatus').textContent = cur.status;
+      document.getElementById('telemSpeed').textContent = cur.velocity_kmh.toFixed(1) + ' km/h';
+      document.getElementById('telemSteer').textContent = (cur.steering_deg > 0 ? '+' : '') + cur.steering_deg.toFixed(1) + '°';
+      document.getElementById('telemHeading').textContent = cur.heading_deg.toFixed(1) + '°';
+      document.getElementById('telemDistGoal').textContent = cur.dist_to_goal_m.toFixed(1) + ' m';
+
+      const totalDist = GLOBAL_DATA.metrics.mission_distance_m || 28.0;
+      const progress = Math.max(0, Math.min(100, (1.0 - cur.dist_to_goal_m / totalDist) * 100));
+      document.getElementById('telemProgress').style.width = progress + '%';
+    }
+
+    // Layer & Color Toggles
+    function toggleLayer(layer) {
+      layers[layer] = !layers[layer];
+      const chipMap = { points: 'chipPoints', cells: 'chipCells', rings: 'chipRings', route: 'chipRoute', traj: 'chipTraj' };
+      document.getElementById(chipMap[layer]).classList.toggle('active', layers[layer]);
+      render();
+    }
+
+    function toggleColorMode() {
+      colorMode = colorMode === 'class' ? 'elevation' : 'class';
+      document.getElementById('chipColorMode').textContent = 'Color: ' + (colorMode === 'class' ? 'Class' : 'Elevation');
+      document.getElementById('chipColorMode').classList.toggle('active', colorMode === 'elevation');
+      render();
+    }
+
+    function updateParamLabel(id, val, unit) {
+      document.getElementById(id).textContent = parseFloat(val).toFixed(2) + unit;
+    }
+    function updateMaxSpeedLabel(val) {
+      const ms = parseFloat(val);
+      document.getElementById('valMaxSpeed').textContent = ms.toFixed(1) + ' m/s (' + (ms * 3.6).toFixed(1) + ' km/h)';
+    }
+
+    // Tabs
+    function switchTab(tabId) {
+      ['tabTuning', 'tabClasses', 'tabTelemetry'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      if (tabId === 'tuning') {
+        document.getElementById('tabTuning').style.display = 'block';
+        event.target.classList.add('active');
+      } else if (tabId === 'classes') {
+        document.getElementById('tabClasses').style.display = 'block';
+        event.target.classList.add('active');
+      } else if (tabId === 'telemetry') {
+        document.getElementById('tabTelemetry').style.display = 'block';
+        event.target.classList.add('active');
+      }
+    }
+
+    // API Integration
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/data');
+        GLOBAL_DATA = await res.json();
+        updateTopHUD();
+        populateTelemetryTable();
+        resizeCanvas();
+        resetPlayback();
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      }
+    }
+
+    function updateTopHUD() {
+      if (!GLOBAL_DATA || !GLOBAL_DATA.metrics) return;
+      const m = GLOBAL_DATA.metrics;
+      document.getElementById('hudRawPoints').textContent = m.raw_points.toLocaleString();
+      document.getElementById('hudCleanPoints').textContent = m.processed_points.toLocaleString() + ' clean (' + (100 * m.processed_points / m.raw_points).toFixed(1) + '%)';
+      document.getElementById('hudAdaptiveCells').textContent = m.adaptive_cells.toLocaleString();
+      document.getElementById('hudUniformCells').textContent = 'vs ' + m.uniform_cells.toLocaleString() + ' uniform';
+      document.getElementById('hudReduction').textContent = '-' + m.cell_reduction_pct + '%';
+      document.getElementById('hudLatency').textContent = m.grid_latency_ms + ' ms latency';
+      document.getElementById('hudTraversable').textContent = m.traversable_pct + '%';
+      document.getElementById('hudBlocked').textContent = m.traversable_cells + ' clear / ' + m.blocked_cells + ' obstacles';
+      document.getElementById('hudDistance').textContent = m.mission_distance_m.toFixed(2) + ' m';
+      document.getElementById('hudPathCells').textContent = m.path_cells + ' collision-free cells';
+      document.getElementById('hudMissionTime').textContent = m.mission_time_sec.toFixed(1) + ' s';
+      document.getElementById('hudAvgSpeed').textContent = 'Avg ' + m.avg_speed_kmh + ' km/h (Max: ' + m.max_speed_kmh + ')';
+      document.getElementById('lblTotalTime').textContent = m.mission_time_sec.toFixed(1) + 's';
+
+      // Semantic class breakdown
+      const total = m.processed_points || 1;
+      const cHtml = `
+        <div style="font-size: 11.5px; margin-bottom: 6px;">Ground: <b>${m.ground_points}</b> (${(100 * m.ground_points / total).toFixed(1)}%)</div>
+        <div style="font-size: 11.5px; margin-bottom: 6px;">Static Obstacles: <b>${m.obstacle_points}</b> (${(100 * m.obstacle_points / total).toFixed(1)}%)</div>
+        <div style="font-size: 11.5px; margin-bottom: 6px;">Dynamic Objects: <b>${m.dynamic_points}</b> (${(100 * m.dynamic_points / total).toFixed(1)}%)</div>
+      `;
+      document.getElementById('classBreakdownHtml').innerHTML = cHtml;
+    }
+
+    function populateTelemetryTable() {
+      if (!GLOBAL_DATA || !GLOBAL_DATA.telemetry) return;
+      const tbody = document.getElementById('telemetryTableBody');
+      tbody.innerHTML = '';
+      GLOBAL_DATA.telemetry.slice(0, 30).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+        tr.innerHTML = `
+          <td style="padding: 4px; color: var(--text-muted);">${row.time_sec}s</td>
+          <td style="padding: 4px; color: var(--accent-cyan);">${row.velocity_kmh}</td>
+          <td style="padding: 4px; color: var(--accent-purple);">${row.steering_deg > 0 ? '+' : ''}${row.steering_deg}°</td>
+          <td style="padding: 4px; color: var(--accent-amber);">${row.dist_to_goal_m}m</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function triggerRecalculate() {
+      const payload = {
+        near_band: parseFloat(document.getElementById('paramNearBand').value),
+        mid_band: parseFloat(document.getElementById('paramMidBand').value),
+        fine_res: parseFloat(document.getElementById('paramFineRes').value),
+        mid_res: parseFloat(document.getElementById('paramMidRes').value),
+        coarse_res: parseFloat(document.getElementById('paramCoarseRes').value),
+        lookahead: parseFloat(document.getElementById('paramLookahead').value),
+        max_speed: parseFloat(document.getElementById('paramMaxSpeed').value),
+      };
+
+      const btn = document.querySelector('.btn-recalc');
+      btn.innerHTML = '⏳ Computing Pipeline...';
+
+      try {
+        await fetch('/api/recalculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        await fetchData();
+      } catch (err) {
+        console.error('Error recalculating:', err);
+      } finally {
+        btn.innerHTML = '⚡ Apply & Recompute Grid';
+      }
+    }
+
+    async function triggerReset() {
+      document.getElementById('paramNearBand').value = 10;
+      document.getElementById('paramMidBand').value = 30;
+      document.getElementById('paramFineRes').value = 0.25;
+      document.getElementById('paramMidRes').value = 0.75;
+      document.getElementById('paramCoarseRes').value = 2.0;
+      document.getElementById('paramLookahead').value = 1.5;
+      document.getElementById('paramMaxSpeed').value = 3.5;
+
+      updateParamLabel('valNearBand', 10, ' m');
+      updateParamLabel('valMidBand', 30, ' m');
+      updateParamLabel('valFineRes', 0.25, ' m');
+      updateParamLabel('valMidRes', 0.75, ' m');
+      updateParamLabel('valCoarseRes', 2.0, ' m');
+      updateParamLabel('valLookahead', 1.5, ' m');
+      updateMaxSpeedLabel(3.5);
+
+      await triggerRecalculate();
+    }
+
+    // Startup
+    fetchData();
+  </script>
+</body>
+</html>

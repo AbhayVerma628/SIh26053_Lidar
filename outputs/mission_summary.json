@@ -1,0 +1,47 @@
+{
+  "project": "TERA PULSE",
+  "hackathon": "Smart India Hackathon 2026",
+  "problem_statement": "SIH26053 - Adaptive Variable Resolution 2.5D LiDAR Mapping",
+  "execution_date": "2026-09-25 11:07:40",
+  "total_execution_time_sec": 8.13,
+  "input_source": "0001.pcd",
+  "raw_points": 20672,
+  "preprocessed_points": 9132,
+  "semantic_breakdown": {
+    "Ground": 4397,
+    "Static Obstacle": 3268,
+    "Dynamic Object": 853,
+    "Unknown": 614
+  },
+  "adaptive_cells_total": 976,
+  "traversable_cells": 817,
+  "blocked_cells": 159,
+  "cell_storage_reduction_percent": 66.2,
+  "path_planning": {
+    "algorithm": "A* on Variable-Resolution Adjacency Graph",
+    "number_of_cells": 47,
+    "start_coordinates": [
+      6.12,
+      -1.38
+    ],
+    "goal_coordinates": [
+      31.0,
+      -3.0
+    ]
+  },
+  "autonomous_execution": {
+    "controller": "Pure Pursuit with Curvature & Goal Slowdown",
+    "success": true,
+    "mission_time_sec": 13.8,
+    "mission_distance_meters": 27.24,
+    "avg_speed_mps": 1.97,
+    "telemetry_log": "outputs\\vehicle_telemetry.csv"
+  },
+  "artifacts_generated": [
+    "outputs\\navigation_dashboard.png",
+    "outputs\\vehicle_telemetry.csv",
+    "outputs\\planned_path.csv",
+    "outputs\\comparison.json",
+    "outputs/adaptive_grid_top_down.svg"
+  ]
+}

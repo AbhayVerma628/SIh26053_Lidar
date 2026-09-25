@@ -1,37 +1,22 @@
 {
-  "input_points": 11420,
-  "strategy": {
-    "near_band_m": [
-      0,
-      10.0
-    ],
-    "middle_band_m": [
-      10.0,
-      30.0
-    ],
-    "far_band_m": [
-      30.0,
-      100
-    ],
-    "fine_m": 0.25,
-    "medium_m": 0.75,
-    "coarse_m": 2.0,
-    "uniform_resolution_m": 0.25
+  "dataset": "Synthetic LiDAR Scene",
+  "raw_points": 25431,
+  "processed_points": 22244,
+  "foveated_bands_meters": {
+    "near_0_to_10m": 0.25,
+    "middle_10_to_30m": 0.75,
+    "far_30_to_100m": 2.0
   },
-  "uniform": {
-    "cells": 11288,
-    "stored_cell_values": 11288,
-    "processing_ms": 56.058
+  "uniform_grid_0.25m": {
+    "cell_count": 15726,
+    "latency_ms": 154.48
   },
-  "adaptive": {
-    "cells": 6656,
-    "stored_cell_values": 6656,
-    "processing_ms": 35.657
+  "adaptive_grid": {
+    "cell_count": 5529,
+    "latency_ms": 47.64
   },
-  "adaptive_point_assignments_by_zone": {
-    "fine_0_to_near_m": 182,
-    "medium_near_to_middle_m": 1299,
-    "coarse_beyond_middle_m": 9939
-  },
-  "note": "Processing measurements are one local run; compare them only on the same machine and input."
+  "performance_gain": {
+    "cell_reduction_percent": 64.84,
+    "latency_reduction_percent": 69.16
+  }
 }
