@@ -214,6 +214,7 @@ Each component of TERA PULSE was engineered modularly to match individual subsys
 | **Semantic Intelligence** | `ml/` | `feature/ml-model` | Terrain classification into ground, static obstacles, and dynamic objects. |
 | **Adaptive Grid Engine** | `grid/` | `feature/adaptive-grid` | Distance-based foveated cell allocation, elevation extrema aggregation. |
 | **Visualization & UI** | `web/`, `navigation/` | `feature/visualization` | Multi-panel dashboard, 60 FPS HTML5 canvas, real-time telemetry gauges. |
+| **Dataset & Validation** | `data/`, `tests/` | `feature/integration` | Benchmark dataset curation, quality assurance, system testing & documentation. |
 | **Full Stack Integration** | `main.py`, `tests/` | `feature/integration` & `main` | End-to-end pipeline coordination, A* search, Pure Pursuit motion control. |
 
 ---

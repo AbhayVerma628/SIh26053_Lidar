@@ -150,6 +150,7 @@ def create_presentation():
         ("Member 3:", "Yashvardhan Jain (LiDAR Preprocessing & Noise Rejection)"),
         ("Member 4:", "Chetan Meena (Semantic Terrain Segmentation & ML)"),
         ("Member 5:", "Sachin Chaubey (Visualization, UI Dashboard & Testing)"),
+        ("Member 6:", "Esha Verma (Dataset Curation, QA & Documentation)"),
         ("Institute:", "Indian Institute of Information Technology Bhopal"),
         ("Repository:", "github.com/AbhayVerma628/SIH26053_Lidar")
     ]
@@ -157,9 +158,9 @@ def create_presentation():
         p = c2_tf.add_paragraph()
         p.text = f"• {label} {val}"
         p.font.name = "Arial"
-        p.font.size = Pt(11)
+        p.font.size = Pt(10.2)
         p.font.color.rgb = TEXT_DARK
-        p.space_after = Pt(6)
+        p.space_after = Pt(4)
 
     footer1 = s1.shapes.add_textbox(Inches(0.8), Inches(7.1), Inches(11.7), Inches(0.3))
     f1_tf = footer1.text_frame
