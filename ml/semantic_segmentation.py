@@ -1,4 +1,4 @@
-"""Rule-based semantic segmentation baseline for preprocessed LiDAR points.
+﻿"""Rule-based semantic segmentation baseline for preprocessed LiDAR points.
 
 Label IDs are deliberately kept small and stable for downstream integration:
     0 = Ground
