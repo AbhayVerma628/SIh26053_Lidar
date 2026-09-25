@@ -1,157 +1,225 @@
-# TERA PULSE — Autonomous Adaptive 2.5D LiDAR Navigation
+# TERA PULSE 🛰️
+### Adaptive Variable-Resolution 2.5D LiDAR Mapping & Autonomous Navigation
 
-[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![SIH](https://img.shields.io/badge/Smart%20India%20Hackathon-2026-orange.svg)](https://www.sih.gov.in/)
-[![Problem Statement](https://img.shields.io/badge/PS-SIH26053-red.svg)]()
-[![Domain](https://img.shields.io/badge/Domain-Defence%20%7C%20DRDO-darkgreen.svg)]()
-[![Build](https://img.shields.io/badge/Pipeline-Verified%20%26%20Passing-brightgreen.svg)]()
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![Smart India Hackathon](https://img.shields.io/badge/Smart%20India%20Hackathon-2026-FF9933.svg?style=flat)](https://www.sih.gov.in/)
+[![Problem Statement](https://img.shields.io/badge/PS-SIH26053-E11D48.svg?style=flat)]()
+[![Domain](https://img.shields.io/badge/Domain-Defence%20%7C%20DRDO-047857.svg?style=flat)]()
+[![Tests](https://img.shields.io/badge/Tests-5%2F5%20Passing-10B981.svg?style=flat)]()
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE)
 
-> **Adaptive Variable-Resolution 2.5D LiDAR Mapping for Dynamic Environment Perception and Autonomous Navigation.**  
-> Developed for **Smart India Hackathon (SIH 2026)** under Problem Statement **SIH26053** (Ministry of Defence / DRDO Domain).
-
----
-
-## 📌 Executive Summary
-
-Autonomous ground vehicles (UGVs) and defense robots operating in off-road, tactical, and dynamic environments depend critically on 3D spatial perception. However, modern 3D LiDAR sensors return millions of points per second, causing extreme computational bottlenecks, memory bandwidth latency, and energy drain on embedded platforms. 
-
-Conversely, conventional 2D occupancy grids flatten the world, discarding crucial height information needed to detect slopes, curbs, ditches, and overhanging hazards.
-
-**TERA PULSE** introduces a biomimetic **"Foveated" 2.5D Adaptive Variable-Resolution Grid Architecture**:
-- **Near Field (0 – 10 m):** Fine-grained resolution (**0.25 m**) for high-precision obstacle clearance, terrain roughness estimation, and reactive steering.
-- **Middle Field (10 – 30 m):** Moderate resolution (**0.75 m**) capturing structured path contours and corridor geometry.
-- **Far Field (30 – 100 m):** Coarse resolution (**2.00 m**) preserving regional context while eliminating redundant cell allocations.
-
-Every 2.5D cell encapsulates elevation extrema ($Z_{max}, Z_{mean}$), terrain slope/roughness, dominant semantic classification (Ground, Static Obstacle, Dynamic Object), and traversability metrics.
+> Built for **Smart India Hackathon 2026** (Problem Statement: **SIH26053**, Ministry of Defence / DRDO).  
+> An autonomous perception-to-control stack that processes raw 3D LiDAR point clouds into adaptive 2.5D elevation grids, finds collision-free routes via A*, and drives a simulated ground vehicle using real-time Pure Pursuit kinematics.
 
 ---
 
-## 🏆 Key Measured Results
-
-Evaluated on real Velodyne 3D LiDAR data (`data/lidar/0001.pcd` with 20,672 points):
-
-| Metric | Uniform 2D Grid (0.25 m) | TERA PULSE Adaptive 2.5D Grid | Quantitative Improvement |
-| :--- | :---: | :---: | :---: |
-| **Occupied Stored Cells** | 2,888 cells | **976 cells** | **66.2% Cell Reduction** |
-| **Grid Mapping Latency** | 23.82 ms | **16.62 ms** | **30.2% Latency Speedup** |
-| **3D Elevation Awareness** | ❌ Lost | **✅ Preserved ($Z_{max}, Z_{mean}, \Delta Z$)** | **Full 2.5D Terrain Profile** |
-| **Traversable Area Identified** | N/A | **817 cells (83.71%)** | **Safe Path Feasibility** |
-| **A\* Path Planning** | Discrete Grid Only | **47 cells, 28.92 m safe route** | **Zero Collision Route** |
-| **Autonomous Control** | ❌ None | **Pure Pursuit (13.8s, 10Hz Telemetry)** | **Complete Motion Commands** |
+![TERA PULSE Autonomous Navigation Dashboard](outputs/navigation_dashboard.png)
 
 ---
 
-## 🏗️ System Architecture Pipeline
+## 💡 Why We Built This
 
-```mermaid
-flowchart TD
-    A["Raw 3D LiDAR Stream\n(.pcd / .bin / Synthetic)"] --> B["Stage 1: Preprocessing\n(Range / Height Filter, Voxel Downsample, SOR)"]
-    B --> C["Stage 2: Deep Semantic Classification\n(Ground, Static Obstacle, Dynamic Object, Unknown)"]
-    C --> D["Stage 3: Adaptive 2.5D Grid Engine\n(Foveated Bands: 0.25m / 0.75m / 2.0m)"]
-    D --> E["Stage 4: Terrain Traversability Analysis\n(Slope, Roughness, Obstacle Clearance)"]
-    E --> F["Stage 5: A* Path Planning\n(Multi-Resolution Adjacency Graph)"]
-    F --> G["Stage 6: Autonomous Kinematic Controller\n(Catmull-Rom Smoothing & Pure Pursuit Motion)"]
-    G --> H["Stage 7: Multi-Panel Visual Dashboard\n(Outputs: PNG, Telemetry CSV, SVG, JSON)"]
+When an unmanned ground vehicle (UGV) or defense rover navigates off-road terrain—such as rocky mountain passes, desert trails, or dense foliage—it relies heavily on 3D LiDAR. However, real-time autonomous navigation faces a classic dilemma:
 
-    style A fill:#e2e8f0,stroke:#334155,stroke-width:2px
-    style D fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px
-    style G fill:#fef3c7,stroke:#d97706,stroke-width:2px
-    style H fill:#dcfce7,stroke:#15803d,stroke-width:2px
+1. **Full 3D Voxel Grids are too heavy:** Allocating fine 3D voxels across a 100-meter range creates millions of empty cells, causing massive memory overhead (hundreds of megabytes) and high latency (100–300 ms). This causes thermal throttling on low-power edge computers like the NVIDIA Jetson Orin.
+2. **Flat 2D Occupancy Grids lose critical height:** Flattening the scene makes a 5 cm pebble (which tires can easily roll over) look identical to a 1.5-meter boulder or a steep drop-off.
+3. **Uniform Resolution wastes compute:** Why compute millimeter-level detail for trees 80 meters away when you only need coarse awareness at that distance, but urgently need high precision for obstacles 2 meters in front of your bumper?
+
+### Our Solution: "Foveated" Adaptive 2.5D Perception
+Inspired by how the human eye focuses sharply on what is directly ahead while keeping the periphery in broad context:
+* **Near Field (0 – 10 m):** High-precision **0.25 m** grid for obstacle clearance, terrain slope, and reactive steering.
+* **Middle Field (10 – 30 m):** Medium **0.75 m** grid for corridor identification and upcoming turns.
+* **Far Field (30 – 100 m):** Coarse **2.00 m** grid for broad situational awareness without wasting RAM.
+
+Every 2.5D cell stores key elevation statistics ($Z_{max}, Z_{mean}, \Delta Z$), terrain roughness, dominant semantic label, and traversability cost—delivering 3D geometric intelligence at the speed and lightweight footprint of a 2D map.
+
+---
+
+## 📊 Measured Performance & Benchmarks
+
+Tested on real Velodyne LiDAR data (`data/lidar/0001.pcd`, 20,672 points from the KITTI benchmark):
+
+| Metric | Standard Uniform Grid (0.25 m) | TERA PULSE Adaptive 2.5D Grid | Real-World Impact |
+| :--- | :---: | :---: | :--- |
+| **Active Stored Cells** | 2,888 cells | **976 cells** | **66.2% less memory footprint** |
+| **Grid Generation Time** | 115.94 ms | **24.23 ms** | **4.8× faster mapping** |
+| **Operating Frequency** | ~8 FPS | **>35 FPS** | **Comfortably fits in 10–20 Hz sensor loops** |
+| **Elevation Profile** | ❌ None | **✅ Full ($Z_{max}, Z_{mean}, \text{slope}$)** | Distinguishes rollable bumps from lethal boulders |
+| **Planned Path** | N/A | **47 cells (28.92 m route)** | Zero-collision path around all obstacles |
+| **Vehicle Motion Control** | ❌ None | **Pure Pursuit (10 Hz Telemetry)** | Real steering angles $\delta(t)$ & velocity $v(t)$ |
+
+---
+
+## 🛠️ System Architecture
+
+```
+[ Raw 3D LiDAR (.pcd / .bin) ]
+             ↓
+  1. LiDAR Preprocessing
+     ├── Voxel downsampling (0.15m grid)
+     ├── Statistical Outlier Removal (SOR, 20 neighbors)
+     └── RANSAC Ground Plane Estimation
+             ↓
+  2. Semantic Terrain Classification
+     └── Classes: Ground (0), Static Obstacle (1), Dynamic Object (2), Unknown (3)
+             ↓
+  3. Adaptive 2.5D Grid Engine
+     ├── Foveated concentric bands (0.25m / 0.75m / 2.0m)
+     ├── Dynamic resolution anchored to moving vehicle [x(t), y(t)]
+     └── Cell aggregation: Z_max, Z_mean, slope gradient, surface roughness
+             ↓
+  4. Traversability & Cost Mapping
+     └── Cost = f(elevation step, surface slope, roughness, semantic obstacle)
+             ↓
+  5. A* Path Planner
+     └── Multi-resolution 8-connected heuristic search with obstacle clearance
+             ↓
+  6. Autonomous Kinematic Controller
+     ├── Catmull-Rom spline trajectory smoothing
+     ├── Pure Pursuit path tracking (Lookahead Ld = 1.5m)
+     ├── Ackermann bicycle kinematics (Wheelbase L = 1.8m)
+     └── Curvature-dependent deceleration & goal braking
+             ↓
+  7. Visual Dashboard & Real-Time Telemetry
+     ├── 5-panel Matplotlib system analysis
+     └── 60 FPS Interactive HTML5 / Flask Localhost Simulator
 ```
 
 ---
 
-## 👥 5-Member Team Structure & Division of Roles
+## 📸 Preprocessing: Before & After
 
-| Member | Module | Key Responsibilities & Deliverables | Core File(s) |
-| :--- | :--- | :--- | :--- |
-| **Member 1** | **ML & Semantic Understanding** | Point-cloud semantic segmentation, ground plane identification, dynamic obstacle clustering. | [`ml/semantic_segmentation.py`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/ml/semantic_segmentation.py) |
-| **Member 2** | **LiDAR Preprocessing & Data** | Point cloud ingestion (PCD/BIN), statistical outlier removal, range/height gating, voxelization. | [`preprocessing/preprocess_lidar.py`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/preprocessing/preprocess_lidar.py) |
-| **Member 3** | **Visualization & Analytics** | 3D point cloud rendering, multi-panel analytics dashboard, telemetry visualization. | [`navigation/navigation_dashboard.py`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/navigation/navigation_dashboard.py) |
-| **Member 4** | **Adaptive 2.5D Grid Engine** | Foveated distance-based cell allocation, elevation statistics aggregation, uniform benchmark. | [`grid/adaptive_grid.py`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/grid/adaptive_grid.py) |
-| **Member 5** | **Integration & Autonomous Navigation** | Pipeline orchestration, traversability graph, A* search, Pure Pursuit motion controller & simulator. | [`main.py`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/main.py), [`navigation/navigation_controller.py`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/navigation/navigation_controller.py) |
+| Raw Input Cloud (20,672 points) | Cleaned & Segmented Cloud (9,132 points) |
+| :---: | :---: |
+| ![Raw Cloud](outputs/before.png) | ![Processed Cloud](outputs/after.png) |
+| *Noisy scan with ground clutter, ground reflections, and distant dropouts.* | *Voxel-filtered, noise-free, ground separated, ready for traversability analysis.* |
 
 ---
 
-## 🚀 Quickstart & Execution
+## 🚀 Quickstart: Running on Your Machine
 
-### 1. Prerequisites
-- **Operating System:** Windows, Linux, or macOS
-- **Python Version:** 3.12 (recommended)
-
-### 2. Environment Setup
-```powershell
+### 1. Clone & Set Up Environment
+```bash
 # Clone the repository
-git clone https://github.com/AbhayVerma628/SIH26053-LiDAR.git
-cd SIH26053-LiDAR
+git clone https://github.com/AbhayVerma628/SIH26053_Lidar.git
+cd SIH26053_Lidar
 
-# Create and activate Python 3.12 virtual environment
+# Create virtual environment (Python 3.12 recommended)
 python -m venv venv
+
+# Activate virtual environment
+# Windows PowerShell:
 .\venv\Scripts\activate
+# Linux / macOS:
+source venv/bin/activate
 
-# Install required dependencies
-pip install open3d numpy matplotlib
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### 3. Run the End-to-End Pipeline
-```powershell
-# Run the complete pipeline on real LiDAR data
+### 2. Run the Full End-to-End Pipeline
+```bash
+# Runs preprocessing -> segmentation -> grid -> A* -> Pure Pursuit -> 5-panel output
 python main.py
-
-# Run on synthetic LiDAR scene
-python main.py --synthetic
-
-# Run with interactive dashboard GUI
-python main.py --show
-
-# Run on custom LiDAR PCD file
-python main.py --input path/to/your_scan.pcd
 ```
+Outputs are automatically written to `outputs/`:
+* `outputs/navigation_dashboard.png`: The full 5-panel visual dashboard.
+* `outputs/vehicle_telemetry.csv`: 10 Hz timestamped steering and speed log.
+* `outputs/planned_path.csv`: Waypoints along the planned route.
+* `outputs/comparison.json`: Uniform vs Adaptive benchmark numbers.
+* `outputs/mission_summary.json`: Complete mission execution summary.
 
-### 4. Run Automated Test Suite
-```powershell
+### 3. Launch the Interactive Localhost Web Simulator
+```bash
+python web/app.py
+```
+Open **`http://localhost:5000`** in your browser to experience:
+* **Dynamic Moving-Car Foveation:** The fine 0.25m bubble continuously moves with the car in real time at 60 FPS.
+* **Mission Playback Scrubber:** Play, pause, scrub back and forth, and change speeds ($1\times, 2\times, 5\times$).
+* **Live HUD Telemetry:** Speedometer, steering angle dial, heading indicator, and distance-to-goal gauge.
+* **Interactive Layer Toggles:** Turn on/off Point Cloud, Adaptive Grid, Traversability Map, Planned Path, and Trajectory.
+* **Real-Time Parameter Tuning:** Adjust Near/Mid distance bands and resolutions with instant live recalculation.
+
+### 4. Run the Unit Test Suite
+```bash
 python tests/test_pipeline.py
 ```
-*(All 5 tests verify preprocessing, segmentation, adaptive grid, path planning, and motion control)*
+Runs 5 automated verification tests covering data ingestion, semantic classification, foveated grid binning, A* route validity, and vehicle kinematics.
 
 ---
 
-## 📊 Visual Outputs & Generated Artifacts
+## 📂 Repository Structure
 
-When `python main.py` is executed, the following production assets are generated in the `outputs/` directory:
-
-1. **`outputs/navigation_dashboard.png`**: High-resolution 5-panel system dashboard:
-   - *Panel 1:* Real 3D LiDAR Point Cloud with elevation spectrum.
-   - *Panel 2:* 2.5D Adaptive Traversability Grid (foveated cell resolution boundaries).
-   - *Panel 3:* Autonomous Navigation Route: A* grid route + smoothed vehicle trajectory.
-   - *Panel 4:* Dynamic Velocity & Distance Profile ($v$ in km/h, distance to goal over time).
-   - *Panel 5:* Vehicle Steering Angle $\delta(t)$ and Heading $\theta(t)$ telemetry.
-2. **`outputs/vehicle_telemetry.csv`**: Timestamped 10Hz navigation telemetry log (`time_sec, x, y, heading_deg, velocity_mps, steering_deg, dist_to_goal_m, status`).
-3. **`outputs/planned_path.csv`**: Exact coordinates and resolution of each cell in the planned route.
-4. **`outputs/comparison.json`**: Auditable benchmark comparing uniform vs adaptive grid performance.
-5. **`outputs/mission_summary.json`**: Complete execution report with timestamp and metrics.
-6. **`outputs/adaptive_grid_top_down.svg`**: Vector graphic showing foveated distance rings.
+```
+SIH26053_Lidar/
+├── main.py                           # Master pipeline orchestrator (CLI)
+├── requirements.txt                  # Core dependencies (Open3D, NumPy, Matplotlib, Flask)
+├── LICENSE                           # MIT License
+├── README.md                         # This documentation
+├── ARCHITECTURE.md                   # In-depth mathematical & technical specifications
+│
+├── preprocessing/                    # Stage 1: LiDAR Ingestion & Filtering
+│   ├── preprocess_lidar.py           # Voxelization, SOR, RANSAC ground extraction
+│   └── __init__.py
+│
+├── ml/                               # Stage 2: Semantic Segmentation
+│   ├── semantic_segmentation.py      # 4-class terrain classifier (Ground, Obstacle, Dynamic)
+│   ├── sample_lidar_frame.pcd        # Sample point cloud frame
+│   └── demo.py                       # Standalone segmentation runner
+│
+├── grid/                             # Stage 3: Adaptive 2.5D Grid Engine
+│   ├── adaptive_grid.py              # Foveated spatial hashing, elevation binning
+│   └── test_adaptive_grid.py         # Unit tests for grid aggregation
+│
+├── navigation/                       # Stages 4, 5, 6: Planning & Kinematics
+│   ├── path_planner.py               # 8-connected A* search with traversability cost
+│   ├── navigation_controller.py      # Pure Pursuit tracker, Catmull-Rom splines, Ackermann model
+│   └── navigation_dashboard.py       # 5-panel visual dashboard generator
+│
+├── web/                              # Stage 7: Interactive Localhost Dashboard
+│   ├── app.py                        # Flask backend & REST API (/api/data, /api/recalculate)
+│   └── templates/
+│       └── index.html                # 60 FPS HTML5 Canvas, HUD telemetry & controls
+│
+├── data/                             # Input LiDAR datasets
+│   └── lidar/
+│       └── 0001.pcd                  # Real KITTI Velodyne scan (20,672 points)
+│
+├── outputs/                          # Generated mission artifacts & benchmarks
+│   ├── navigation_dashboard.png      # 5-panel high-res dashboard
+│   ├── vehicle_telemetry.csv         # 10 Hz timestamped telemetry log
+│   ├── planned_path.csv              # Planned A* waypoints
+│   ├── comparison.json               # Auditable uniform vs adaptive benchmark
+│   ├── mission_summary.json          # Execution performance metrics
+│   ├── before.png                    # Raw input point cloud capture
+│   └── after.png                     # Cleaned point cloud capture
+│
+├── docs/                             # SIH 2026 Submission Deliverables
+│   ├── SIH26053_PRESENTATION_PPT_GUIDE.md  # 15-slide presentation guide & judge talking points
+│   └── SIH26053_VIDEO_DEMO_SCRIPT.md       # 3-minute video demonstration script
+│
+└── tests/                            # Automated Testing
+    └── test_pipeline.py              # 5/5 end-to-end integration tests
+```
 
 ---
 
-## 📑 Smart India Hackathon (SIH 2026) Submission Pack
+## 👥 Team & Modular Architecture
 
-Complete documentation prepared for internal reviews, grand finale evaluation, and portal submission:
+Each component of TERA PULSE was engineered modularly to match individual subsystem ownership:
 
-- 📄 **15-Slide Presentation PPT Guide:** [`docs/SIH26053_PRESENTATION_PPT_GUIDE.md`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/docs/SIH26053_PRESENTATION_PPT_GUIDE.md)
-- 🎥 **3-Minute Video Demonstration Script:** [`docs/SIH26053_VIDEO_DEMO_SCRIPT.md`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/docs/SIH26053_VIDEO_DEMO_SCRIPT.md)
-- 📐 **Technical Architecture Specification:** [`ARCHITECTURE.md`](file:///C:/Users/HP/Desktop/SIH26053_Lidar/ARCHITECTURE.md)
-
----
-
-## 🎯 Alignment with SIH Evaluation Criteria
-
-- **Novelty:** Foveated variable-resolution mapping adapts computation to human-like visual attention principles rather than brute-force uniform voxels.
-- **Complexity & Technical Depth:** Integrates point cloud downsampling, multi-class semantic segmentation, multi-resolution spatial hashing, graph-based A* path planning, and kinematic Pure Pursuit vehicle control.
-- **Defence & DRDO Relevance:** Tailored for tactical UGVs navigating unstructured rough terrains, obstacle corridors, and GPS-denied environments.
-- **Measurable Impact:** Reduces memory footprint by **66.2%** and mapping latency by **30.2%**, enabling deployment on low-power edge compute (NVIDIA Jetson / Raspberry Pi).
+| Subsystem | Core Module | Git Branch | Responsibilities |
+| :--- | :--- | :--- | :--- |
+| **LiDAR Preprocessing** | `preprocessing/` | `feature/preprocessing` | Point cloud ingestion, outlier rejection, RANSAC ground separation. |
+| **Semantic Intelligence** | `ml/` | `feature/ml-model` | Terrain classification into ground, static obstacles, and dynamic objects. |
+| **Adaptive Grid Engine** | `grid/` | `feature/adaptive-grid` | Distance-based foveated cell allocation, elevation extrema aggregation. |
+| **Visualization & UI** | `web/`, `navigation/` | `feature/visualization` | Multi-panel dashboard, 60 FPS HTML5 canvas, real-time telemetry gauges. |
+| **Full Stack Integration** | `main.py`, `tests/` | `feature/integration` & `main` | End-to-end pipeline coordination, A* search, Pure Pursuit motion control. |
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License — see the LICENSE file for details.
+## 📄 License & Acknowledgments
+
+* **License:** This project is licensed under the [MIT License](LICENSE).
+* **Dataset:** Real point cloud data sourced from the **KITTI Vision Benchmark Suite** (Karlsruhe Institute of Technology & Toyota Technological Institute at Chicago).
+* **Hackathon:** Developed for **Smart India Hackathon 2026** under the **Ministry of Defence / DRDO** domain.

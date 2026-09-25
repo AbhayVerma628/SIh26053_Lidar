@@ -1,0 +1,7 @@
+# TERA PULSE — Autonomous Adaptive 2.5D LiDAR Perception & Navigation
+# Core Python dependencies
+
+open3d>=0.18.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+flask>=3.0.0
