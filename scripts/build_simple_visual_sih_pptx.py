@@ -27,7 +27,7 @@ def build_perfect_sih_presentation():
     sih_logo_path = os.path.join(img_dir, "page_1_1_Im1.png")
     brain_img_path = os.path.join(img_dir, "page_1_0_Im0.png")
     car_sensor_path = os.path.join(img_dir, "car_lidar_sensor.png")
-    pipeline_img_path = os.path.join(img_dir, "page_6_33_Im2.jpg")
+    pipeline_img_path = os.path.join(img_dir, "colored_research_pipeline.jpg")
     dash_img_path = r"C:\Users\HP\Desktop\SIH26053_Lidar\outputs\navigation_dashboard.png"
 
     # Helper: Master Header and Footer for Slides 2-6 (Exact original template)
