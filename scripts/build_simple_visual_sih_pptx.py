@@ -26,7 +26,7 @@ def build_perfect_sih_presentation():
     img_dir = r"C:\Users\HP\Desktop\SIH26053_Lidar\docs\template_images"
     sih_logo_path = os.path.join(img_dir, "page_1_1_Im1.png")
     brain_img_path = os.path.join(img_dir, "page_1_0_Im0.png")
-    car_sensor_path = os.path.join(img_dir, "car_lidar_sensor.png")
+    car_sensor_path = os.path.join(img_dir, "clean_car_lidar_sensor.png")
     pipeline_img_path = os.path.join(img_dir, "colored_research_pipeline.jpg")
     dash_img_path = r"C:\Users\HP\Desktop\SIH26053_Lidar\outputs\navigation_dashboard.png"
 
@@ -177,7 +177,7 @@ def build_perfect_sih_presentation():
         ("• Problem Statement Title –", " Adaptive Foveated 2.5D Semantic Mapping from LiDAR Point Clouds for Autonomous Navigation"),
         ("• Theme –", " Smart Vehicles"),
         ("• PS Category –", " Software"),
-        ("• Team ID –", " TBA"),
+        ("• Team ID –", " 137735"),
         ("• Team Name –", " TeraPulse"),
         ("• Team Members –", " Abhay Verma (Team Leader), Lokendra Singh,\nYashvardhan Jain, Chetan Meena, Sachin Chaubey, Esha Verma"),
         ("• Institute –", " Indian Institute of Information Technology Bhopal")
@@ -534,9 +534,9 @@ def build_perfect_sih_presentation():
         r2.font.bold = False
         r2.font.color.rgb = TEXT_DARK
 
-    # Right Bottom: Autonomous Car Sensor Perception Visual (Original template position)
+    # Right Bottom: Autonomous Car Sensor Perception Visual (Clean style inside screen bounds)
     if os.path.exists(car_sensor_path):
-        s4.shapes.add_picture(car_sensor_path, Inches(6.8), Inches(3.6), width=Inches(5.9))
+        s4.shapes.add_picture(car_sensor_path, Inches(6.9), Inches(3.75), width=Inches(5.5))
 
     # ==================== SLIDE 5: Impact and Benefits ====================
     s5 = prs.slides.add_slide(blank_layout)
