@@ -195,8 +195,8 @@ SIH26053_Lidar/
 │   └── after.png                     # Cleaned point cloud capture
 │
 ├── docs/                             # SIH 2026 Submission Deliverables
-│   ├── SIH26053_PRESENTATION_PPT_GUIDE.md  # 15-slide presentation guide & judge talking points
-│   └── SIH26053_VIDEO_DEMO_SCRIPT.md       # 3-minute video demonstration script
+│   ├── SIH26053_TeraPulse_Official_Presentation.pptx # Official SIH 2026 Presentation (PPTX)
+│   └── SIH26053_TeraPulse_Official_Presentation.pdf  # Official SIH 2026 Presentation (PDF)
 │
 └── tests/                            # Automated Testing
     └── test_pipeline.py              # 5/5 end-to-end integration tests

@@ -23,10 +23,10 @@ def build_perfect_sih_presentation():
     WHITE = RGBColor(255, 255, 255)
 
     blank_layout = prs.slide_layouts[6]
-    img_dir = r"C:\Users\HP\Desktop\SIH26053_Lidar\docs\template_images"
-    sih_logo_path = os.path.join(img_dir, "page_1_1_Im1.png")
-    brain_img_path = os.path.join(img_dir, "page_1_0_Im0.png")
-    car_sensor_path = os.path.join(img_dir, "clean_car_lidar_sensor.png")
+    img_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "assets")
+    sih_logo_path = os.path.join(img_dir, "sih_logo.png")
+    brain_img_path = os.path.join(img_dir, "sih_brain.png")
+    car_sensor_path = os.path.join(img_dir, "car_lidar_sensor.png")
     pipeline_img_path = os.path.join(img_dir, "colored_research_pipeline.jpg")
     dash_img_path = r"C:\Users\HP\Desktop\SIH26053_Lidar\outputs\navigation_dashboard.png"
 
